@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="80" fill="#0d0d0f"/>
+  <rect width="512" height="512" rx="80" fill="url(#g)"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a0a00"/>
+      <stop offset="100%" stop-color="#0d0d0f"/>
+    </linearGradient>
+  </defs>
+  <!-- Dumbbell icon -->
+  <rect x="148" y="236" width="216" height="40" rx="20" fill="#ff5c00"/>
+  <rect x="108" y="192" width="52" height="128" rx="20" fill="#ff5c00"/>
+  <rect x="352" y="192" width="52" height="128" rx="20" fill="#ff5c00"/>
+  <rect x="72" y="208" width="42" height="96" rx="16" fill="#ff8c42"/>
+  <rect x="398" y="208" width="42" height="96" rx="16" fill="#ff8c42"/>
+</svg>

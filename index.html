@@ -563,6 +563,48 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
   padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;
   display:flex;gap:10px;background:var(--s1);
 }
+/* ── ALT PICKER MODAL ── */
+.alt-pick-modal .modal-title{font-size:16px;margin-bottom:4px;}
+.alt-pick-subtitle{font-size:12px;color:var(--t3);margin-bottom:16px;}
+.alt-pick-list{display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto;}
+.alt-pick-item{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s2);border:1px solid var(--border);border-radius:12px;
+  padding:10px;cursor:pointer;transition:all 0.15s;
+}
+.alt-pick-item:active{transform:scale(0.98);}
+.alt-pick-item.active-ex{border-color:var(--a);background:rgba(108,99,255,0.08);}
+.alt-pick-img{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;}
+.alt-pick-info{flex:1;}
+.alt-pick-name{font-size:14px;font-weight:600;line-height:1.2;}
+.alt-pick-meta{font-size:11px;color:var(--t3);margin-top:3px;}
+.alt-pick-tags{display:flex;gap:4px;margin-top:5px;}
+.alt-pick-check{
+  width:28px;height:28px;border-radius:50%;border:2px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;
+}
+.alt-pick-item.active-ex .alt-pick-check{background:var(--a);border-color:var(--a);}
+
+/* ── TIMER EDIT ── */
+.timer-edit-row{
+  display:flex;align-items:center;gap:6px;
+}
+.timer-adj-btn{
+  width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
+  background:var(--s2);color:var(--text);font-size:16px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;flex-shrink:0;
+}
+.timer-adj-btn:active{transform:scale(0.9);background:var(--a);border-color:var(--a);}
+.timer-num-tap{cursor:pointer;user-select:none;}
+.timer-num-tap:active{opacity:0.7;}
+.timer-custom-input{
+  background:var(--s3);border:1px solid var(--a);color:var(--text);
+  border-radius:8px;padding:4px 8px;font-size:20px;font-weight:700;
+  font-family:'Inter',sans-serif;width:70px;text-align:center;outline:none;
+  display:none;
+}
+
 </style>
 </head>
 <body>
@@ -811,10 +853,24 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 
 <div id="toast"></div>
 
+<!-- ALT PICKER MODAL -->
+<div class="modal-bg" id="alt-modal" onclick="closeAltModal(event)">
+  <div class="modal alt-pick-modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="alt-modal-title">Choisir un exercice</div>
+    <div class="alt-pick-subtitle" id="alt-modal-sub">Même groupe musculaire · Tap pour remplacer</div>
+    <div class="alt-pick-list" id="alt-modal-list"></div>
+    <button class="btn btn-ghost" style="width:100%;margin-top:14px;" onclick="closeAltModal()">Annuler</button>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════
 // DATA
 // ══════════════════════════════════════════════
+// activeEx[dayId][exIdx] = override {name,sets,reps,rest,muscle,badge,img} ou null
+let activeEx = {};
+
 const DAYS = [
   {
     id:"lundi",label:"Lundi",type:"Push",icon:"🔥",typeClass:"push",
@@ -823,19 +879,48 @@ const DAYS = [
     exercises:[
       {name:"Développé couché",sets:4,reps:"8–12",rest:120,muscle:"Pecs",badge:"Composé",
        img:"https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80",
-       alts:[{name:"Développé couché haltères",sets:"4×8–12"},{name:"Pompes lestées",sets:"4×12"},{name:"Presse à pecs machine",sets:"4×10–12"}]},
+       alts:[
+         {name:"Développé couché haltères",sets:4,reps:"8–12",rest:120,muscle:"Pecs",badge:"Composé",img:"https://images.unsplash.com/photo-1581009137042-c552e485697a?w=600&q=80"},
+         {name:"Pompes lestées",sets:4,reps:"12–15",rest:90,muscle:"Pecs",badge:"Composé",img:"https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80"},
+         {name:"Presse à pecs machine",sets:4,reps:"10–12",rest:90,muscle:"Pecs",badge:"Composé",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Développé décliné barre",sets:4,reps:"8–10",rest:120,muscle:"Pecs bas",badge:"Composé",img:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80"},
+         {name:"Dips lestés",sets:4,reps:"6–10",rest:120,muscle:"Pecs / Triceps",badge:"Composé",img:"https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&q=80"},
+       ]},
       {name:"Développé épaules",sets:4,reps:"8–12",rest:90,muscle:"Épaules",badge:"Composé",
        img:"https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80",
-       alts:[{name:"Arnold Press",sets:"4×10–12"},{name:"Développé militaire barre",sets:"4×6–8"},{name:"Pike Push-up",sets:"4×12"}]},
+       alts:[
+         {name:"Arnold Press",sets:4,reps:"10–12",rest:90,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+         {name:"Développé militaire barre",sets:4,reps:"6–8",rest:120,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80"},
+         {name:"Push Press",sets:4,reps:"6–8",rest:120,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+         {name:"Développé machine",sets:4,reps:"10–15",rest:75,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80"},
+         {name:"Landmine Press",sets:3,reps:"10–12",rest:90,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+       ]},
       {name:"Écarté pecs câble",sets:3,reps:"10–15",rest:75,muscle:"Pecs",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1576678927484-cc907957088c?w=600&q=80",
-       alts:[{name:"Pec Deck Machine",sets:"3×12–15"},{name:"Pompes larges",sets:"3×15"},{name:"Cable Crossover Low",sets:"3×12"}]},
+       alts:[
+         {name:"Pec Deck Machine",sets:3,reps:"12–15",rest:60,muscle:"Pecs",badge:"Isolation",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Cable Crossover Low-to-High",sets:3,reps:"12–15",rest:60,muscle:"Pecs hauts",badge:"Isolation",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Pompes larges",sets:3,reps:"15–20",rest:60,muscle:"Pecs",badge:"Isolation",img:"https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80"},
+         {name:"Écarté haltères incliné",sets:3,reps:"12–15",rest:60,muscle:"Pecs hauts",badge:"Isolation",img:"https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80"},
+       ]},
       {name:"Extension triceps poulie",sets:3,reps:"10–15",rest:60,muscle:"Triceps",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1612864980853-d7f4ca77cba0?w=600&q=80",
-       alts:[{name:"Skull Crusher EZ",sets:"3×10–12"},{name:"Dips banc",sets:"3×12–15"},{name:"Kickback haltère",sets:"3×12"}]},
+       alts:[
+         {name:"Skull Crusher EZ",sets:3,reps:"10–12",rest:75,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1502904550040-7534597429ae?w=600&q=80"},
+         {name:"Dips banc triceps",sets:3,reps:"12–15",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&q=80"},
+         {name:"Kickback haltère",sets:3,reps:"12–15",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+         {name:"Pushdown corde",sets:3,reps:"12–15",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1612864980853-d7f4ca77cba0?w=600&q=80"},
+         {name:"Extension overhead câble",sets:3,reps:"12–15",rest:60,muscle:"Triceps long",badge:"Isolation",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+         {name:"French Press haltère",sets:3,reps:"12",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+       ]},
       {name:"Élévations latérales",sets:3,reps:"12–15",rest:60,muscle:"Deltoïdes",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80",
-       alts:[{name:"Élévations câble",sets:"3×15"},{name:"Face Pull poulie",sets:"3×15"},{name:"Oiseau haltères",sets:"3×12–15"}]},
+       alts:[
+         {name:"Élévations latérales câble",sets:3,reps:"15",rest:60,muscle:"Deltoïdes",badge:"Isolation",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Face Pull poulie haute",sets:3,reps:"15",rest:60,muscle:"Arrière épaules",badge:"Isolation",img:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80"},
+         {name:"Oiseau haltères",sets:3,reps:"12–15",rest:60,muscle:"Deltoïdes arrière",badge:"Isolation",img:"https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80"},
+         {name:"Élévations frontales haltères",sets:3,reps:"12",rest:60,muscle:"Deltoïdes avant",badge:"Isolation",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+       ]},
     ]
   },
   {
@@ -845,19 +930,48 @@ const DAYS = [
     exercises:[
       {name:"Tractions / Lat Pulldown",sets:4,reps:"6–10",rest:120,muscle:"Dos",badge:"Composé",
        img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80",
-       alts:[{name:"Tractions lestées",sets:"4×6–8"},{name:"Pullover câble",sets:"4×12"},{name:"Rangée machine",sets:"4×10–12"}]},
+       alts:[
+         {name:"Tractions lestées",sets:4,reps:"6–8",rest:150,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&q=80"},
+         {name:"Pullover câble",sets:4,reps:"12",rest:90,muscle:"Grand dorsal",badge:"Isolation",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Rangée machine",sets:4,reps:"10–12",rest:90,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Lat Pulldown prise large",sets:4,reps:"10–12",rest:90,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Tractions neutres",sets:4,reps:"6–10",rest:120,muscle:"Dos / Biceps",badge:"Composé",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+       ]},
       {name:"Rowing barre",sets:4,reps:"8–12",rest:90,muscle:"Dos",badge:"Composé",
        img:"https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&q=80",
-       alts:[{name:"Rowing haltère unilatéral",sets:"4×10/côté"},{name:"Rowing câble assis",sets:"4×12"},{name:"Rowing machine",sets:"4×10–12"}]},
+       alts:[
+         {name:"Rowing haltère unilatéral",sets:4,reps:"10/côté",rest:90,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+         {name:"Rowing câble assis",sets:4,reps:"12",rest:75,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Rowing machine",sets:4,reps:"10–12",rest:75,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Chest Supported Row",sets:4,reps:"10–12",rest:90,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Rowing Landmine",sets:3,reps:"10/côté",rest:90,muscle:"Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&q=80"},
+       ]},
       {name:"Curl biceps barre",sets:3,reps:"10–12",rest:75,muscle:"Biceps",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80",
-       alts:[{name:"Curl haltères alterné",sets:"3×10–12"},{name:"Curl câble",sets:"3×12–15"},{name:"Curl marteau",sets:"3×12"}]},
-      {name:"Face Pull",sets:3,reps:"12–15",rest:60,muscle:"Arr. épaules",badge:"Isolation",
+       alts:[
+         {name:"Curl haltères alterné",sets:3,reps:"10–12",rest:75,muscle:"Biceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1502904550040-7534597429ae?w=600&q=80"},
+         {name:"Curl câble barre",sets:3,reps:"12–15",rest:60,muscle:"Biceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+         {name:"Curl marteau haltères",sets:3,reps:"12",rest:60,muscle:"Biceps / Brachial",badge:"Isolation",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+         {name:"21s barre EZ",sets:3,reps:"21",rest:90,muscle:"Biceps",badge:"Intensification",img:"https://images.unsplash.com/photo-1502904550040-7534597429ae?w=600&q=80"},
+         {name:"Curl concentré haltère",sets:3,reps:"12",rest:60,muscle:"Biceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+         {name:"Curl Zottman",sets:3,reps:"10–12",rest:75,muscle:"Biceps / Brachioradial",badge:"Isolation",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+       ]},
+      {name:"Face Pull",sets:3,reps:"12–15",rest:60,muscle:"Arrière épaules",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80",
-       alts:[{name:"Oiseau haltères",sets:"3×15"},{name:"Reverse Pec Deck",sets:"3×15"},{name:"Band pull-apart",sets:"3×20"}]},
+       alts:[
+         {name:"Oiseau haltères",sets:3,reps:"15",rest:60,muscle:"Deltoïdes arrière",badge:"Isolation",img:"https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80"},
+         {name:"Reverse Pec Deck",sets:3,reps:"15",rest:60,muscle:"Deltoïdes arrière",badge:"Isolation",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Band pull-apart",sets:3,reps:"20",rest:45,muscle:"Arrière épaules",badge:"Isolation",img:"https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=80"},
+         {name:"Cable Rear Delt Fly",sets:3,reps:"15",rest:60,muscle:"Deltoïdes arrière",badge:"Isolation",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+       ]},
       {name:"Shrug haltères",sets:3,reps:"12–15",rest:60,muscle:"Trapèzes",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1652363722833-509b3aac287b?w=600&q=80",
-       alts:[{name:"Shrug barre",sets:"3×12"},{name:"Shrug câble",sets:"3×15"},{name:"Farmer's Walk",sets:"3×30m"}]},
+       alts:[
+         {name:"Shrug barre",sets:3,reps:"12",rest:75,muscle:"Trapèzes",badge:"Isolation",img:"https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&q=80"},
+         {name:"Shrug câble",sets:3,reps:"15",rest:60,muscle:"Trapèzes",badge:"Isolation",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Farmer's Walk",sets:3,reps:"30m",rest:90,muscle:"Trapèzes / Core",badge:"Fonctionnel",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Rack Pull",sets:3,reps:"8–10",rest:120,muscle:"Trapèzes / Dos",badge:"Composé",img:"https://images.unsplash.com/photo-1603287681836-b174ce5074c2?w=600&q=80"},
+       ]},
     ]
   },
   {
@@ -867,19 +981,47 @@ const DAYS = [
     exercises:[
       {name:"Squat barre",sets:4,reps:"6–10",rest:150,muscle:"Quadri / Fessiers",badge:"Composé",
        img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80",
-       alts:[{name:"Goblet Squat",sets:"4×12"},{name:"Hack Squat",sets:"4×10–12"},{name:"Leg Press",sets:"4×12–15"}]},
+       alts:[
+         {name:"Goblet Squat haltère",sets:4,reps:"12",rest:90,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=600&q=80"},
+         {name:"Hack Squat machine",sets:4,reps:"10–12",rest:120,muscle:"Quadriceps",badge:"Composé",img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80"},
+         {name:"Leg Press",sets:4,reps:"12–15",rest:120,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Front Squat",sets:4,reps:"6–8",rest:150,muscle:"Quadriceps",badge:"Composé",img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80"},
+         {name:"Box Squat",sets:4,reps:"8–10",rest:120,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1603287681836-b174ce5074c2?w=600&q=80"},
+         {name:"Belt Squat",sets:4,reps:"10–12",rest:120,muscle:"Quadriceps",badge:"Composé",img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80"},
+       ]},
       {name:"Romanian Deadlift",sets:4,reps:"8–10",rest:120,muscle:"Ischios / Fessiers",badge:"Composé",
        img:"https://images.unsplash.com/photo-1603287681836-b174ce5074c2?w=600&q=80",
-       alts:[{name:"Leg Curl couché",sets:"4×12"},{name:"SDT jambes tendues",sets:"4×10"},{name:"Bonne nuit",sets:"4×12"}]},
+       alts:[
+         {name:"Leg Curl couché machine",sets:4,reps:"12",rest:75,muscle:"Ischios",badge:"Isolation",img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80"},
+         {name:"SDT jambes tendues haltères",sets:4,reps:"10",rest:120,muscle:"Ischios / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1603287681836-b174ce5074c2?w=600&q=80"},
+         {name:"Bonne nuit",sets:4,reps:"12",rest:90,muscle:"Ischios / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=600&q=80"},
+         {name:"Nordic Curl",sets:3,reps:"6–8",rest:120,muscle:"Ischios",badge:"Avancé",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Hip Thrust",sets:4,reps:"10–12",rest:90,muscle:"Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80"},
+       ]},
       {name:"Fentes marchées",sets:3,reps:"10–12",rest:90,muscle:"Quadri / Fessiers",badge:"Composé",
        img:"https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=600&q=80",
-       alts:[{name:"Fentes bulgares",sets:"3×10/jambe"},{name:"Step-up box",sets:"3×12/jambe"},{name:"Fentes latérales",sets:"3×10"}]},
+       alts:[
+         {name:"Fentes bulgares",sets:3,reps:"10/jambe",rest:90,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80"},
+         {name:"Step-up box lesté",sets:3,reps:"12/jambe",rest:75,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1603287681836-b174ce5074c2?w=600&q=80"},
+         {name:"Fentes latérales",sets:3,reps:"10",rest:75,muscle:"Adducteurs / Quadri",badge:"Composé",img:"https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=600&q=80"},
+         {name:"Reverse Lunge",sets:3,reps:"10/jambe",rest:75,muscle:"Quadri / Fessiers",badge:"Composé",img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80"},
+       ]},
       {name:"Leg Extension",sets:3,reps:"12–15",rest:60,muscle:"Quadriceps",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80",
-       alts:[{name:"Terminal Knee Ext.",sets:"3×15"},{name:"Wall Sit 45s",sets:"3×45s"},{name:"Sissy Squat",sets:"3×12"}]},
+       alts:[
+         {name:"Terminal Knee Extension élastique",sets:3,reps:"15",rest:45,muscle:"Quadriceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Wall Sit 45s",sets:3,reps:"45s",rest:60,muscle:"Quadriceps",badge:"Isométrie",img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80"},
+         {name:"Sissy Squat",sets:3,reps:"12",rest:60,muscle:"Quadriceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1434682881908-b43d0467b798?w=600&q=80"},
+         {name:"Leg Press feet high",sets:3,reps:"12–15",rest:60,muscle:"Quadriceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80"},
+       ]},
       {name:"Mollets debout",sets:4,reps:"15–20",rest:60,muscle:"Mollets",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80",
-       alts:[{name:"Mollets assis machine",sets:"4×15"},{name:"Mollets leg press",sets:"4×20"},{name:"Corde à sauter 1min",sets:"4×1min"}]},
+       alts:[
+         {name:"Mollets assis machine",sets:4,reps:"15",rest:60,muscle:"Soléaire",badge:"Isolation",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+         {name:"Mollets sur leg press",sets:4,reps:"20",rest:60,muscle:"Mollets",badge:"Isolation",img:"https://images.unsplash.com/photo-1574680096145-d05b474e2155?w=600&q=80"},
+         {name:"Corde à sauter 1min",sets:4,reps:"1min",rest:60,muscle:"Mollets / Cardio",badge:"Cardio",img:"https://images.unsplash.com/photo-1608138278748-2f04b78d19dd?w=600&q=80"},
+         {name:"Mollets unilatéral haltère",sets:4,reps:"15/jambe",rest:60,muscle:"Mollets",badge:"Isolation",img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80"},
+       ]},
     ]
   },
   {
@@ -889,19 +1031,43 @@ const DAYS = [
     exercises:[
       {name:"Développé incliné haltères",sets:4,reps:"8–12",rest:90,muscle:"Pecs hauts",badge:"Composé",
        img:"https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80",
-       alts:[{name:"Développé incliné barre",sets:"4×8–10"},{name:"Câble Fly incliné",sets:"4×12"},{name:"Pompes inclinées lestées",sets:"4×12"}]},
+       alts:[
+         {name:"Développé incliné barre",sets:4,reps:"8–10",rest:120,muscle:"Pecs hauts",badge:"Composé",img:"https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600&q=80"},
+         {name:"Câble Fly incliné",sets:4,reps:"12",rest:75,muscle:"Pecs hauts",badge:"Isolation",img:"https://images.unsplash.com/photo-1576678927484-cc907957088c?w=600&q=80"},
+         {name:"Pompes inclinées lestées",sets:4,reps:"12",rest:75,muscle:"Pecs hauts",badge:"Composé",img:"https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80"},
+         {name:"Landmine Press incliné",sets:3,reps:"10/côté",rest:90,muscle:"Pecs hauts",badge:"Composé",img:"https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80"},
+       ]},
       {name:"Tirage poignée neutre",sets:4,reps:"8–12",rest:90,muscle:"Dos / Biceps",badge:"Composé",
        img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80",
-       alts:[{name:"Lat Pulldown prise serrée",sets:"4×10–12"},{name:"Rowing bras tendus",sets:"4×12"},{name:"Tractions supination",sets:"4×6–8"}]},
+       alts:[
+         {name:"Lat Pulldown prise serrée",sets:4,reps:"10–12",rest:90,muscle:"Dos / Biceps",badge:"Composé",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Tractions supination",sets:4,reps:"6–8",rest:120,muscle:"Dos / Biceps",badge:"Composé",img:"https://images.unsplash.com/photo-1544033527-b192daee1f5b?w=600&q=80"},
+         {name:"Rowing bras tendus câble",sets:4,reps:"12",rest:75,muscle:"Grand dorsal",badge:"Isolation",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Pullover haltère",sets:3,reps:"12",rest:75,muscle:"Grand dorsal",badge:"Isolation",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+       ]},
       {name:"Développé assis haltères",sets:3,reps:"10–12",rest:75,muscle:"Épaules",badge:"Composé",
        img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80",
-       alts:[{name:"Arnold Press",sets:"3×10"},{name:"Push Press",sets:"3×8"},{name:"Développé machine",sets:"3×12"}]},
+       alts:[
+         {name:"Arnold Press",sets:3,reps:"10",rest:75,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?w=600&q=80"},
+         {name:"Push Press barre",sets:3,reps:"8",rest:120,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1532029837206-abbe2b7620e3?w=600&q=80"},
+         {name:"Développé machine",sets:3,reps:"12",rest:75,muscle:"Épaules",badge:"Composé",img:"https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=600&q=80"},
+       ]},
       {name:"Curl barre EZ",sets:3,reps:"10–12",rest:60,muscle:"Biceps",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1502904550040-7534597429ae?w=600&q=80",
-       alts:[{name:"Curl concentré haltère",sets:"3×12"},{name:"Curl câble EZ",sets:"3×12"},{name:"21s barre EZ",sets:"3×21"}]},
+       alts:[
+         {name:"Curl concentré haltère",sets:3,reps:"12",rest:60,muscle:"Biceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+         {name:"Curl câble barre EZ",sets:3,reps:"12",rest:60,muscle:"Biceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=600&q=80"},
+         {name:"Curl Zottman",sets:3,reps:"10",rest:60,muscle:"Biceps / Brachial",badge:"Isolation",img:"https://images.unsplash.com/photo-1502904550040-7534597429ae?w=600&q=80"},
+         {name:"Curl incliné haltères",sets:3,reps:"10–12",rest:75,muscle:"Biceps long",badge:"Isolation",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+       ]},
       {name:"Dips triceps",sets:3,reps:"10–15",rest:60,muscle:"Triceps",badge:"Composé",
        img:"https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&q=80",
-       alts:[{name:"Pushdown corde",sets:"3×12–15"},{name:"French Press haltère",sets:"3×12"},{name:"Extension overhead câble",sets:"3×15"}]},
+       alts:[
+         {name:"Pushdown corde poulie",sets:3,reps:"12–15",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1612864980853-d7f4ca77cba0?w=600&q=80"},
+         {name:"French Press haltère",sets:3,reps:"12",rest:60,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+         {name:"Extension overhead câble",sets:3,reps:"15",rest:60,muscle:"Triceps long",badge:"Isolation",img:"https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=600&q=80"},
+         {name:"Skull Crusher EZ décliné",sets:3,reps:"10–12",rest:75,muscle:"Triceps",badge:"Isolation",img:"https://images.unsplash.com/photo-1612864980853-d7f4ca77cba0?w=600&q=80"},
+       ]},
     ]
   },
   {
@@ -911,19 +1077,47 @@ const DAYS = [
     exercises:[
       {name:"Planche",sets:4,reps:"30–60s",rest:60,muscle:"Core",badge:"Gainage",
        img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80",
-       alts:[{name:"Planche latérale",sets:"4×30s/côté"},{name:"Planche toucher épaules",sets:"4×20rep"},{name:"Planche bosu",sets:"4×40s"}]},
+       alts:[
+         {name:"Planche latérale",sets:4,reps:"30s/côté",rest:60,muscle:"Obliques / Core",badge:"Gainage",img:"https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=600&q=80"},
+         {name:"Planche toucher d'épaule",sets:4,reps:"20 reps",rest:60,muscle:"Core / Épaules",badge:"Gainage",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Planche bosu",sets:4,reps:"40s",rest:60,muscle:"Core",badge:"Gainage",img:"https://images.unsplash.com/photo-1549476464-37392f717541?w=600&q=80"},
+         {name:"Hollow Hold",sets:4,reps:"30s",rest:45,muscle:"Core",badge:"Gainage",img:"https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=600&q=80"},
+         {name:"Dead Bug",sets:3,reps:"10/côté",rest:45,muscle:"Core",badge:"Gainage",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+       ]},
       {name:"Crunch câble",sets:4,reps:"12–15",rest:60,muscle:"Abdos",badge:"Isolation",
        img:"https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&q=80",
-       alts:[{name:"Crunch décliné lesté",sets:"4×15"},{name:"Ab Wheel",sets:"4×10–12"},{name:"Dragon Flag",sets:"4×8"}]},
+       alts:[
+         {name:"Crunch décliné lesté",sets:4,reps:"15",rest:60,muscle:"Abdos",badge:"Isolation",img:"https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&q=80"},
+         {name:"Ab Wheel",sets:4,reps:"10–12",rest:75,muscle:"Core / Abdos",badge:"Composé",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Dragon Flag",sets:4,reps:"8",rest:90,muscle:"Abdos",badge:"Avancé",img:"https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=600&q=80"},
+         {name:"Crunch vélo",sets:4,reps:"20",rest:45,muscle:"Abdos / Obliques",badge:"Isolation",img:"https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80"},
+         {name:"Sit-up lesté",sets:4,reps:"15",rest:60,muscle:"Abdos",badge:"Composé",img:"https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&q=80"},
+       ]},
       {name:"Relevé de jambes suspendu",sets:3,reps:"10–15",rest:75,muscle:"Abdos bas",badge:"Composé",
        img:"https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=600&q=80",
-       alts:[{name:"Relevé de jambes sol",sets:"3×15"},{name:"Flutter kicks 30s",sets:"3×30s"},{name:"Mountain climbers 30s",sets:"3×30s"}]},
+       alts:[
+         {name:"Relevé de jambes sol",sets:3,reps:"15",rest:60,muscle:"Abdos bas",badge:"Isolation",img:"https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&q=80"},
+         {name:"Flutter kicks 30s",sets:3,reps:"30s",rest:45,muscle:"Abdos bas",badge:"Isométrie",img:"https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=600&q=80"},
+         {name:"Mountain climbers 30s",sets:3,reps:"30s",rest:45,muscle:"Core / Cardio",badge:"Cardio",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Toe Touch",sets:3,reps:"15",rest:45,muscle:"Abdos bas",badge:"Isolation",img:"https://images.unsplash.com/photo-1549060279-7e168fcee0c2?w=600&q=80"},
+       ]},
       {name:"Russian Twist lesté",sets:3,reps:"15–20",rest:60,muscle:"Obliques",badge:"Rotation",
        img:"https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80",
-       alts:[{name:"Bois de bûcheron câble",sets:"3×15/côté"},{name:"Pallof Press",sets:"3×12/côté"},{name:"Side Bend haltère",sets:"3×15"}]},
+       alts:[
+         {name:"Bois de bûcheron câble",sets:3,reps:"15/côté",rest:60,muscle:"Obliques / Core",badge:"Rotation",img:"https://images.unsplash.com/photo-1616803140344-6682afb09f73?w=600&q=80"},
+         {name:"Pallof Press",sets:3,reps:"12/côté",rest:60,muscle:"Core / Obliques",badge:"Gainage",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Side Bend haltère",sets:3,reps:"15",rest:45,muscle:"Obliques",badge:"Isolation",img:"https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&q=80"},
+         {name:"L-Sit suspendu",sets:3,reps:"20s",rest:60,muscle:"Core / Obliques",badge:"Gainage",img:"https://images.unsplash.com/photo-1607962837359-5e7e89f86776?w=600&q=80"},
+       ]},
       {name:"Sprint / Rameur HIIT",sets:5,reps:"20s effort / 40s repos",rest:40,muscle:"Cardio",badge:"HIIT",
        img:"https://images.unsplash.com/photo-1608138278748-2f04b78d19dd?w=600&q=80",
-       alts:[{name:"Burpees 20s ON / 40s OFF",sets:"5 rounds"},{name:"Jump Rope 30s ON",sets:"6 rounds"},{name:"Vélo stationnaire sprint",sets:"5×20s"}]},
+       alts:[
+         {name:"Burpees 20s ON / 40s OFF",sets:5,reps:"20s",rest:40,muscle:"Cardio total",badge:"HIIT",img:"https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80"},
+         {name:"Jump Rope HIIT",sets:6,reps:"30s",rest:30,muscle:"Cardio / Mollets",badge:"HIIT",img:"https://images.unsplash.com/photo-1608138278748-2f04b78d19dd?w=600&q=80"},
+         {name:"Vélo stationnaire sprint",sets:5,reps:"20s",rest:40,muscle:"Cardio / Jambes",badge:"HIIT",img:"https://images.unsplash.com/photo-1576511735645-c4e21e3b3600?w=600&q=80"},
+         {name:"Kettlebell Swing",sets:4,reps:"15",rest:60,muscle:"Fessiers / Cardio",badge:"Fonctionnel",img:"https://images.unsplash.com/photo-1598971639058-fab3c3109a34?w=600&q=80"},
+         {name:"Box Jump",sets:4,reps:"10",rest:60,muscle:"Jambes / Cardio",badge:"Pliométrie",img:"https://images.unsplash.com/photo-1579126038374-6064753b6b0b?w=600&q=80"},
+       ]},
     ]
   },
 ];
@@ -933,11 +1127,28 @@ const DAYS = [
 // ══════════════════════════════════════════════
 let state = {}; // { dayId: { exIdx: setsCount } }
 let weights = {}; // { 'dayId-exIdx-setIdx': weight }
-let history = []; // [{date,dayId,dayLabel,exercises:[{name,sets:[{reps,weight}]}],volume}]
+let history = []; // sessions
 let prefs = { name:'', weight:75, unit:'kg', vibrate:true, autotimer:true };
-let timers = {}; // active intervals
+let customRest = {}; // { 'dayId-exIdx': seconds } overrides
+let timers = {};
 let woState = { dayId:null, exIdx:0, elapsed:0, elapsedTimer:null };
 let deferredPrompt = null;
+
+// Initialize activeEx for each day/exercise
+DAYS.forEach(d => {
+  activeEx[d.id] = {};
+  d.exercises.forEach((_,i) => { activeEx[d.id][i] = null; });
+});
+
+function getEx(dayId, exIdx) {
+  // Returns override if set, else original
+  return activeEx[dayId][exIdx] || DAYS.find(d=>d.id===dayId).exercises[exIdx];
+}
+
+function getRestTime(dayId, exIdx) {
+  const key = `${dayId}-${exIdx}`;
+  return customRest[key] != null ? customRest[key] : getEx(dayId, exIdx).rest;
+}
 
 function load() {
   try {
@@ -945,6 +1156,15 @@ function load() {
     const w = localStorage.getItem('ft_weights'); if(w) weights = JSON.parse(w);
     const h = localStorage.getItem('ft_history'); if(h) history = JSON.parse(h);
     const p = localStorage.getItem('ft_prefs'); if(p) prefs = {...prefs,...JSON.parse(p)};
+    const cr = localStorage.getItem('ft_customrest'); if(cr) customRest = JSON.parse(cr);
+    const ae = localStorage.getItem('ft_activeex'); if(ae) {
+      const loaded = JSON.parse(ae);
+      DAYS.forEach(d => {
+        if(loaded[d.id]) d.exercises.forEach((_,i) => {
+          activeEx[d.id][i] = loaded[d.id][i] || null;
+        });
+      });
+    }
   } catch(e){}
   DAYS.forEach(d => {
     if(!state[d.id]) state[d.id] = {};
@@ -957,6 +1177,8 @@ function save() {
   localStorage.setItem('ft_weights', JSON.stringify(weights));
   localStorage.setItem('ft_history', JSON.stringify(history));
   localStorage.setItem('ft_prefs', JSON.stringify(prefs));
+  localStorage.setItem('ft_customrest', JSON.stringify(customRest));
+  localStorage.setItem('ft_activeex', JSON.stringify(activeEx));
 }
 
 // ══════════════════════════════════════════════
@@ -1027,90 +1249,7 @@ function buildProgramme() {
       const card = document.createElement('div');
       card.className = 'ex-card';
       card.id = 'excard-'+exId;
-
-      // Sets rows
-      let setsHtml = '';
-      for(let s=0; s<ex.sets; s++) {
-        const wKey = `${exId}-${s}`;
-        const savedW = weights[wKey] || '';
-        setsHtml += `
-          <div class="set-row" id="setrow-${exId}-${s}">
-            <div class="set-num" id="setnum-${exId}-${s}">${s+1}</div>
-            <input class="set-weight-input" id="setw-${exId}-${s}" type="number" placeholder="—"
-              value="${savedW}" step="0.5"
-              onchange="saveWeight('${exId}',${s},this.value)"
-              oninput="saveWeight('${exId}',${s},this.value)">
-            <span class="set-weight-unit">${prefs.unit}</span>
-            <span class="set-reps-target">${ex.reps} reps</span>
-            <button class="set-check-btn" id="setchk-${exId}-${s}" onclick="toggleSet('${day.id}',${ei},${s})">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            </button>
-          </div>`;
-      }
-
-      // Alts
-      let altsHtml = ex.alts.map((a,ai)=>`
-        <div class="alt-row">
-          <div class="alt-n">${ai+1}</div>
-          <div class="alt-name">${a.name}</div>
-          <div class="alt-sets-tag">${a.sets}</div>
-        </div>`).join('');
-
-      const timerR = 26, timerCirc = 2*Math.PI*timerR;
-
-      card.innerHTML = `
-        <div class="ex-card-header" onclick="toggleExCard('${exId}')">
-          <div class="ex-num" id="exnum-${exId}">${ei+1}</div>
-          <div class="ex-title">${ex.name}</div>
-          <div class="ex-done-check">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <svg class="ex-expand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-
-        <div class="ex-card-body">
-          <div class="ex-card-img">
-            <img src="${ex.img}" alt="${ex.name}" loading="lazy">
-            <div class="ex-card-img-overlay"></div>
-            <div class="ex-img-tags">
-              <span class="pill accent">${ex.badge}</span>
-              <span class="pill">${ex.muscle}</span>
-            </div>
-          </div>
-
-          <div class="sets-header">
-            <div class="sets-label">Séries · ${ex.reps} reps</div>
-            <div class="sets-count" id="setscount-${exId}">0 / ${ex.sets} faites</div>
-          </div>
-          <div class="sets-grid">${setsHtml}</div>
-
-          <div class="timer-section" id="timersec-${exId}">
-            <div class="timer-ring-wrap">
-              <svg width="60" height="60" viewBox="0 0 60 60">
-                <circle class="timer-ring-bg" cx="30" cy="30" r="${timerR}"/>
-                <circle class="timer-ring-prog" id="tring-${exId}" cx="30" cy="30" r="${timerR}"
-                  stroke-dasharray="${timerCirc}" stroke-dashoffset="${timerCirc}"/>
-              </svg>
-              <div class="timer-num" id="tnum-${exId}">${fmtTime(ex.rest)}</div>
-            </div>
-            <div class="timer-info">
-              <div class="timer-title">Repos entre séries</div>
-              <div class="timer-sub" id="tsub-${exId}">${fmtTime(ex.rest)} recommandé</div>
-            </div>
-            <button class="timer-btn timer-btn-start" id="tbtn-${exId}" onclick="startTimer('${exId}',${ex.rest})">▶ Go</button>
-          </div>
-
-          <div class="alts-toggle" onclick="toggleAlts('${exId}')">
-            <div class="alts-toggle-label">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
-              Exercices alternatifs (${ex.alts.length})
-            </div>
-            <svg class="alts-toggle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-          </div>
-          <div class="alts-list">${altsHtml}</div>
-        </div>
-      `;
-
+      rebuildExCard(card, day.id, ei);
       exList.appendChild(card);
     });
 
@@ -1129,6 +1268,98 @@ function switchProgDay(dayId) {
 }
 
 // ══════════════════════════════════════════════
+// EXERCISE CARD BUILD (dynamic, supports swap)
+// ══════════════════════════════════════════════
+function rebuildExCard(card, dayId, ei) {
+  const exId = `${dayId}-${ei}`;
+  const ex = getEx(dayId, ei);
+  const origEx = DAYS.find(d=>d.id===dayId).exercises[ei];
+  const rest = getRestTime(dayId, ei);
+  const isSwapped = !!activeEx[dayId][ei];
+  const timerR = 26, timerCirc = 2*Math.PI*timerR;
+
+  let setsHtml = '';
+  for(let s=0; s<ex.sets; s++) {
+    const wKey = `${exId}-${s}`;
+    const savedW = weights[wKey] || '';
+    setsHtml += `
+      <div class="set-row" id="setrow-${exId}-${s}">
+        <div class="set-num" id="setnum-${exId}-${s}">${s+1}</div>
+        <input class="set-weight-input" id="setw-${exId}-${s}" type="number" placeholder="—"
+          value="${savedW}" step="0.5"
+          onchange="saveWeight('${exId}',${s},this.value)"
+          oninput="saveWeight('${exId}',${s},this.value)">
+        <span class="set-weight-unit">${prefs.unit}</span>
+        <span class="set-reps-target">${ex.reps} reps</span>
+        <button class="set-check-btn" id="setchk-${exId}-${s}" onclick="toggleSet('${dayId}',${ei},${s})">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>`;
+  }
+
+  card.innerHTML = `
+    <div class="ex-card-header" onclick="toggleExCard('${exId}')">
+      <div class="ex-num" id="exnum-${exId}">${ei+1}</div>
+      <div class="ex-title" id="extitle-${exId}">${ex.name}${isSwapped?` <span style="font-size:10px;color:var(--a2);font-weight:600;"> ↔ remplacé</span>`:''}</div>
+      <div class="ex-done-check">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <svg class="ex-expand-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+
+    <div class="ex-card-body">
+      <div class="ex-card-img">
+        <img src="${ex.img}" alt="${ex.name}" loading="lazy">
+        <div class="ex-card-img-overlay"></div>
+        <div class="ex-img-tags">
+          <span class="pill accent">${ex.badge}</span>
+          <span class="pill">${ex.muscle}</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="btn btn-ghost" style="flex:1;font-size:12px;gap:6px;" onclick="openAltModal('${dayId}',${ei})">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          Changer d'exercice (${origEx.alts.length})
+        </button>
+        ${isSwapped ? `<button class="btn btn-danger" style="padding:10px 12px;font-size:12px;" onclick="resetExSwap('${dayId}',${ei})">↺ Original</button>` : ''}
+      </div>
+
+      <div class="sets-header">
+        <div class="sets-label">Séries · ${ex.reps} reps</div>
+        <div class="sets-count" id="setscount-${exId}">0 / ${ex.sets} faites</div>
+      </div>
+      <div class="sets-grid">${setsHtml}</div>
+
+      <div class="timer-section" id="timersec-${exId}">
+        <div class="timer-ring-wrap">
+          <svg width="60" height="60" viewBox="0 0 60 60">
+            <circle class="timer-ring-bg" cx="30" cy="30" r="${timerR}"/>
+            <circle class="timer-ring-prog" id="tring-${exId}" cx="30" cy="30" r="${timerR}"
+              stroke-dasharray="${timerCirc}" stroke-dashoffset="${timerCirc}"/>
+          </svg>
+          <div class="timer-num timer-num-tap" id="tnum-${exId}" title="Tap pour modifier">${fmtTime(rest)}</div>
+          <input class="timer-custom-input" id="tcustom-${exId}" type="number" min="10" max="600"
+            value="${rest}" onblur="applyCustomRest('${dayId}',${ei})" onkeydown="if(event.key==='Enter')applyCustomRest('${dayId}',${ei})">
+        </div>
+        <div class="timer-info">
+          <div class="timer-title">Repos entre séries</div>
+          <div class="timer-edit-row" style="margin-top:6px;">
+            <button class="timer-adj-btn" onclick="adjRest('${dayId}',${ei},-15)">−15</button>
+            <span style="font-size:11px;color:var(--t3);" id="trestlabel-${exId}">${fmtTime(rest)}</span>
+            <button class="timer-adj-btn" onclick="adjRest('${dayId}',${ei},+15)">+15</button>
+          </div>
+        </div>
+        <button class="timer-btn timer-btn-start" id="tbtn-${exId}" onclick="startTimer('${exId}',getRestTime('${dayId}',${ei}))">▶ Go</button>
+      </div>
+    </div>
+  `;
+
+  // Restore done state visually
+  refreshEx(dayId, ei);
+}
+
+// ══════════════════════════════════════════════
 // EXERCISE CARD OPEN/CLOSE
 // ══════════════════════════════════════════════
 function toggleExCard(exId) {
@@ -1137,16 +1368,146 @@ function toggleExCard(exId) {
 }
 
 // ══════════════════════════════════════════════
+// ALT SWAP
+// ══════════════════════════════════════════════
+let _altContext = null;
+
+function openAltModal(dayId, exIdx) {
+  _altContext = {dayId, exIdx};
+  const origEx = DAYS.find(d=>d.id===dayId).exercises[exIdx];
+  const curEx = getEx(dayId, exIdx);
+
+  document.getElementById('alt-modal-title').textContent = `Remplacer : ${origEx.name}`;
+  document.getElementById('alt-modal-sub').textContent = `Groupe musculaire : ${origEx.muscle}`;
+
+  const list = document.getElementById('alt-modal-list');
+
+  // First item = original exercise
+  const allChoices = [
+    {isOriginal:true, ...origEx},
+    ...origEx.alts
+  ];
+
+  list.innerHTML = allChoices.map((a, i) => {
+    const isActive = i===0 ? !activeEx[dayId][exIdx] : (curEx.name===a.name);
+    return `<div class="alt-pick-item ${isActive?'active-ex':''}" onclick="selectAlt(${i})">
+      <img class="alt-pick-img" src="${a.img||origEx.img}" alt="${a.name}" loading="lazy">
+      <div class="alt-pick-info">
+        <div class="alt-pick-name">${i===0?'⭐ ':''} ${a.name}${i===0?' <span style="font-size:10px;color:var(--t3)">(original)</span>':''}</div>
+        <div class="alt-pick-meta">${a.sets} séries · ${a.reps} reps · repos ${fmtTime(a.rest)}</div>
+        <div class="alt-pick-tags">
+          <span class="pill accent" style="font-size:10px;">${a.badge}</span>
+          <span class="pill" style="font-size:10px;">${a.muscle}</span>
+        </div>
+      </div>
+      <div class="alt-pick-check">
+        ${isActive?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('alt-modal').classList.add('open');
+}
+
+function selectAlt(choiceIdx) {
+  if(!_altContext) return;
+  const {dayId, exIdx} = _altContext;
+  const origEx = DAYS.find(d=>d.id===dayId).exercises[exIdx];
+  const allChoices = [origEx, ...origEx.alts];
+  const chosen = allChoices[choiceIdx];
+
+  if(choiceIdx === 0) {
+    activeEx[dayId][exIdx] = null; // restore original
+  } else {
+    activeEx[dayId][exIdx] = chosen;
+    // Reset custom rest when swapping
+    delete customRest[`${dayId}-${exIdx}`];
+  }
+
+  // Reset series count when swapping
+  state[dayId][exIdx] = 0;
+  save();
+
+  // Rebuild card
+  const exId = `${dayId}-${exIdx}`;
+  const card = document.getElementById('excard-'+exId);
+  const wasOpen = card.classList.contains('ex-open');
+  rebuildExCard(card, dayId, exIdx);
+  if(wasOpen) card.classList.add('ex-open');
+  updateDayProgress(dayId);
+
+  closeAltModal();
+  toast(`✓ Remplacé par : ${chosen.name}`);
+}
+
+function resetExSwap(dayId, exIdx) {
+  activeEx[dayId][exIdx] = null;
+  delete customRest[`${dayId}-${exIdx}`];
+  state[dayId][exIdx] = 0;
+  save();
+  const exId = `${dayId}-${exIdx}`;
+  const card = document.getElementById('excard-'+exId);
+  const wasOpen = card.classList.contains('ex-open');
+  rebuildExCard(card, dayId, exIdx);
+  if(wasOpen) card.classList.add('ex-open');
+  updateDayProgress(dayId);
+  toast('↺ Exercice original restauré');
+}
+
+function closeAltModal(e) {
+  if(e && e.target !== document.getElementById('alt-modal')) return;
+  document.getElementById('alt-modal').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════
+// CUSTOM REST TIME
+// ══════════════════════════════════════════════
+function adjRest(dayId, exIdx, delta) {
+  const key = `${dayId}-${exIdx}`;
+  const cur = getRestTime(dayId, exIdx);
+  const newVal = Math.max(10, Math.min(600, cur + delta));
+  customRest[key] = newVal;
+  save();
+  updateRestUI(dayId, exIdx);
+}
+
+function applyCustomRest(dayId, exIdx) {
+  const exId = `${dayId}-${exIdx}`;
+  const input = document.getElementById(`tcustom-${exId}`);
+  const num = document.getElementById(`tnum-${exId}`);
+  if(!input) return;
+  const val = Math.max(10, Math.min(600, parseInt(input.value)||60));
+  customRest[`${dayId}-${exIdx}`] = val;
+  save();
+  input.style.display = 'none';
+  if(num) { num.style.display = 'flex'; num.textContent = fmtTime(val); }
+  updateRestUI(dayId, exIdx);
+}
+
+function updateRestUI(dayId, exIdx) {
+  const exId = `${dayId}-${exIdx}`;
+  const rest = getRestTime(dayId, exIdx);
+  const num = document.getElementById(`tnum-${exId}`);
+  const label = document.getElementById(`trestlabel-${exId}`);
+  const btn = document.getElementById(`tbtn-${exId}`);
+  if(num && num.style.display !== 'none') num.textContent = fmtTime(rest);
+  if(label) label.textContent = fmtTime(rest);
+  // Update go button onclick with new rest
+  if(btn) btn.onclick = () => startTimer(exId, getRestTime(dayId, exIdx));
+}
+
+
+// ══════════════════════════════════════════════
 // SET TRACKING
 // ══════════════════════════════════════════════
 function toggleSet(dayId, exIdx, setIdx) {
   const exId = `${dayId}-${exIdx}`;
-  const ex = DAYS.find(d=>d.id===dayId).exercises[exIdx];
+  const ex = getEx(dayId, exIdx);
   const current = state[dayId][exIdx];
 
   if(setIdx === current && current < ex.sets) {
     state[dayId][exIdx]++;
-    if(prefs.autotimer) startTimer(exId, ex.rest);
+    if(prefs.autotimer) startTimer(exId, getRestTime(dayId, exIdx));
   } else if(setIdx === current - 1) {
     state[dayId][exIdx]--;
   }
@@ -1162,14 +1523,13 @@ function saveWeight(exId, setIdx, val) {
 
 function refreshEx(dayId, exIdx) {
   const exId = `${dayId}-${exIdx}`;
-  const ex = DAYS.find(d=>d.id===dayId).exercises[exIdx];
+  const ex = getEx(dayId, exIdx);
   const done = state[dayId][exIdx];
   const card = document.getElementById('excard-'+exId);
   if(!card) return;
 
   for(let s=0; s<ex.sets; s++) {
     const row = document.getElementById(`setrow-${exId}-${s}`);
-    const num = document.getElementById(`setnum-${exId}-${s}`);
     if(!row) continue;
     row.classList.remove('set-active','set-done');
     if(s < done) row.classList.add('set-done');
@@ -1190,7 +1550,7 @@ function refreshAllEx(dayId) {
 // ══════════════════════════════════════════════
 function updateDayProgress(dayId) {
   const day = DAYS.find(d=>d.id===dayId);
-  const done = day.exercises.filter((_,i)=>state[dayId][i]>=day.exercises[i].sets).length;
+  const done = day.exercises.filter((_,i)=>state[dayId][i]>=getEx(dayId,i).sets).length;
   const total = day.exercises.length;
   const num = document.getElementById('dhnum-'+dayId);
   const ring = document.getElementById('dhring-'+dayId);
@@ -1279,13 +1639,18 @@ function toggleAlts(exId) {
 // RESET DAY
 // ══════════════════════════════════════════════
 function resetDay(dayId) {
-  if(!confirm('Remettre à zéro cette journée ?')) return;
+  if(!confirm('Remettre à zéro cette journée ? (séries, exercices remplacés, temps de repos modifiés)')) return;
   const day = DAYS.find(d=>d.id===dayId);
   day.exercises.forEach((_,i)=>{
     state[dayId][i]=0;
-    stopTimer(`${dayId}-${i}`, day.exercises[i].rest);
+    activeEx[dayId][i]=null;
+    delete customRest[`${dayId}-${i}`];
+    const exId=`${dayId}-${i}`;
+    stopTimer(exId, day.exercises[i].rest);
+    // Rebuild card
+    const card=document.getElementById('excard-'+exId);
+    if(card){const wasOpen=card.classList.contains('ex-open');rebuildExCard(card,dayId,i);if(wasOpen)card.classList.add('ex-open');}
   });
-  refreshAllEx(dayId);
   updateDayProgress(dayId);
   save();
 }
@@ -1301,13 +1666,14 @@ function recordSession(dayId) {
 
   let totalVol = 0;
   const exercises = day.exercises.map((ex,ei)=>{
+    const activeE = getEx(dayId, ei);
     const sets = [];
-    for(let s=0;s<ex.sets;s++) {
+    for(let s=0;s<activeE.sets;s++) {
       const w = parseFloat(weights[`${dayId}-${ei}-${s}`]) || 0;
-      sets.push({reps:ex.reps, weight:w});
-      totalVol += w * (parseInt(ex.reps) || 10);
+      sets.push({reps:activeE.reps, weight:w});
+      totalVol += w * (parseInt(activeE.reps) || 10);
     }
-    return {name:ex.name, sets};
+    return {name:activeE.name, sets};
   });
 
   history.unshift({date:today, dayId, dayLabel:`${day.label} — ${day.type}`, exercises, volume:Math.round(totalVol)});
@@ -1710,135 +2076,4 @@ function renderWoEx() {
     </div>
     <div class="sets-header">
       <div class="sets-label">Séries</div>
-      <div class="sets-count" id="wo-setscount">— / ${ex.sets} faites</div>
-    </div>
-    <div class="sets-grid" id="wo-sets-grid">${setsHtml}</div>
-    <div class="timer-section">
-      <div class="timer-ring-wrap">
-        <svg width="60" height="60" viewBox="0 0 60 60">
-          <circle class="timer-ring-bg" cx="30" cy="30" r="${r}"/>
-          <circle class="timer-ring-prog" id="wo-tring" cx="30" cy="30" r="${r}"
-            stroke-dasharray="${circ}" stroke-dashoffset="${circ}"/>
-        </svg>
-        <div class="timer-num" id="wo-tnum">${fmtTime(ex.rest)}</div>
-      </div>
-      <div class="timer-info">
-        <div class="timer-title">Repos recommandé</div>
-        <div class="timer-sub">${fmtTime(ex.rest)}</div>
-      </div>
-      <button class="timer-btn timer-btn-start" id="wo-tbtn" onclick="woStartTimer()">▶ Go</button>
-    </div>
-  `;
-  woRefreshSets();
-}
-
-function woSaveW(setIdx, val) {
-  const exId=`${woState.dayId}-${woState.exIdx}`;
-  weights[`${exId}-${setIdx}`]=val;
-  // sync to main
-  const mainInput=document.getElementById(`setw-${exId}-${setIdx}`);
-  if(mainInput) mainInput.value=val;
-  save();
-}
-
-function woToggleSet(setIdx) {
-  toggleSet(woState.dayId, woState.exIdx, setIdx);
-  woRefreshSets();
-  // sync to main card
-  refreshEx(woState.dayId, woState.exIdx);
-}
-
-function woRefreshSets() {
-  const exId=`${woState.dayId}-${woState.exIdx}`;
-  const ex=DAYS.find(d=>d.id===woState.dayId).exercises[woState.exIdx];
-  const done=state[woState.dayId][woState.exIdx];
-  for(let s=0;s<ex.sets;s++){
-    const row=document.getElementById(`wo-setrow-${s}`);
-    if(!row)continue;
-    row.classList.remove('set-active','set-done');
-    if(s<done)row.classList.add('set-done');
-    else if(s===done)row.classList.add('set-active');
-  }
-  const sc=document.getElementById('wo-setscount');
-  if(sc) sc.textContent=`${done} / ${ex.sets} faites`;
-}
-
-let woTimerInterval=null;
-function woStartTimer() {
-  const exId=`${woState.dayId}-${woState.exIdx}`;
-  const ex=DAYS.find(d=>d.id===woState.dayId).exercises[woState.exIdx];
-  const s=ex.rest;
-  if(woTimerInterval) clearInterval(woTimerInterval);
-  let t=s;
-  const r=32,circ=2*Math.PI*r;
-  const ring=document.getElementById('wo-tring');
-  const num=document.getElementById('wo-tnum');
-  const btn=document.getElementById('wo-tbtn');
-  if(num){num.textContent=fmtTime(t);num.classList.remove('done');}
-  if(ring){ring.style.strokeDashoffset=circ;ring.classList.remove('done');}
-  if(btn){btn.textContent='■ Stop';btn.className='timer-btn timer-btn-stop';btn.onclick=()=>{clearInterval(woTimerInterval);if(num)num.textContent=fmtTime(s);if(ring)ring.style.strokeDashoffset=circ;btn.textContent='▶ Go';btn.className='timer-btn timer-btn-start';btn.onclick=woStartTimer;};}
-  woTimerInterval=setInterval(()=>{
-    t--;
-    if(num)num.textContent=fmtTime(t);
-    if(ring)ring.style.strokeDashoffset=circ-((s-t)/s)*circ;
-    if(t<=0){
-      clearInterval(woTimerInterval);
-      if(num){num.textContent='Go!';num.classList.add('done');}
-      if(ring)ring.classList.add('done');
-      if(btn){btn.textContent='▶ Go';btn.className='timer-btn timer-btn-start';btn.onclick=woStartTimer;}
-      if(prefs.vibrate&&navigator.vibrate)navigator.vibrate([150,80,150]);
-    }
-  },1000);
-}
-
-function woNextEx() {
-  const day=DAYS.find(d=>d.id===woState.dayId);
-  if(woState.exIdx<day.exercises.length-1){woState.exIdx++;renderWoEx();}
-}
-function woPrevEx() {
-  if(woState.exIdx>0){woState.exIdx--;renderWoEx();}
-}
-function woGoEx(i){woState.exIdx=i;renderWoEx();}
-
-// ══════════════════════════════════════════════
-// TOAST
-// ══════════════════════════════════════════════
-let toastTimer=null;
-function toast(msg) {
-  const el=document.getElementById('toast');
-  el.textContent=msg;el.classList.add('show');
-  if(toastTimer)clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>el.classList.remove('show'),3000);
-}
-
-// ══════════════════════════════════════════════
-// PWA
-// ══════════════════════════════════════════════
-if('serviceWorker' in navigator) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-}
-window.addEventListener('beforeinstallprompt',e=>{
-  e.preventDefault();deferredPrompt=e;
-  document.getElementById('install-btn').style.display='flex';
-});
-window.addEventListener('appinstalled',()=>document.getElementById('install-btn').style.display='none');
-function triggerInstall() {
-  if(!deferredPrompt)return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(r=>{
-    if(r.outcome==='accepted'){document.getElementById('install-btn').style.display='none';toast('✓ Application installée !');}
-    deferredPrompt=null;
-  });
-}
-
-// ══════════════════════════════════════════════
-// INIT
-// ══════════════════════════════════════════════
-load();
-buildProgramme();
-updateAllProgress();
-DAYS.forEach(d=>refreshAllEx(d.id));
-refreshHome();
-</script>
-</body>
-</html>
+      <div class=
